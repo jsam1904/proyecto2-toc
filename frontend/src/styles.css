@@ -487,3 +487,126 @@ button.primario:hover:not(:disabled) {
   padding-left: 1.2rem;
   color: var(--tinta-suave);
 }
+
+/* Gramáticas: variables en tinta, terminales en azul (mono), ε en gris. */
+.simbolo-var {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--tinta);
+}
+.simbolo-term {
+  font-family: var(--mono);
+  color: var(--azul);
+}
+.simbolo-eps {
+  font-family: var(--mono);
+  color: var(--tinta-suave);
+}
+.alternativa > span + span {
+  margin-left: 0.35em;
+}
+.alternativa {
+  padding: 0.05em 0.3em;
+  border-radius: var(--radio);
+  border: 1.5px solid transparent;
+}
+.alternativa.nueva {
+  background: var(--ambar-fondo);
+  border-color: var(--ambar);
+}
+.alternativa.quitada {
+  background: var(--rojo-fondo);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+.barra {
+  color: var(--tinta-suave);
+  margin: 0 0.4em;
+}
+
+.tabla-producciones {
+  border-collapse: collapse;
+  font-size: 1.02rem;
+}
+.tabla-producciones th,
+.tabla-producciones td {
+  border-bottom: 1px solid var(--linea);
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  vertical-align: baseline;
+  line-height: 1.9;
+}
+.tabla-producciones th {
+  font-weight: 400;
+  white-space: nowrap;
+}
+.tabla-producciones td.flecha {
+  color: var(--tinta-suave);
+  padding-inline: 0.2rem;
+}
+.tabla-producciones .fila-quitada th {
+  text-decoration: line-through;
+  color: var(--rojo);
+}
+.marca-inicial {
+  font-family: var(--mano);
+  font-size: 0.8rem;
+  color: var(--tinta-suave);
+  margin-left: 0.4rem;
+}
+.leyenda {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  color: var(--tinta-suave);
+  font-size: 0.9rem;
+  margin: 0.6rem 0 0;
+}
+
+.paso-gramatica h3 {
+  font-family: var(--mano);
+  font-weight: 400;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.chips {
+  display: grid;
+  gap: 0.25rem;
+}
+.chips-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip {
+  border: 1.5px solid var(--tinta);
+  border-radius: var(--radio);
+  background: var(--papel-alto);
+  padding: 0.05rem 0.45rem;
+}
+
+details.json summary {
+  font-family: var(--mano);
+  color: var(--tinta-suave);
+  cursor: pointer;
+}
+details.json pre {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  background: var(--papel-alto);
+  border: 1.5px solid var(--linea);
+  border-radius: var(--radio);
+  padding: 0.75rem;
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.formulario select.ejemplos {
+  font: inherit;
+  border: 1.5px solid var(--tinta);
+  border-radius: var(--radio);
+  background: var(--papel-alto);
+  color: var(--tinta);
+  padding: 0.4rem 0.5rem;
+}
