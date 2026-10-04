@@ -45,6 +45,20 @@ Y -> * F Y | e
 F -> ( E ) | id
 ```
 
+Para ver el JSON que produce el lector:
+
+```
+python -m motor.gramatica gramaticas/1.txt
+```
+
+## Tests
+
+Desde la raíz del proyecto (solo usa la librería estándar):
+
+```
+python -m unittest discover tests
+```
+
 ## Levantar con Docker
 
 Requiere Docker Desktop abierto. Desde la raíz del proyecto:
@@ -89,6 +103,7 @@ En desarrollo, Vite redirige `/cyk` al backend en `localhost:8000`.
 | Método | Ruta     | Descripción                                    |
 | ------ | -------- | ---------------------------------------------- |
 | GET    | `/salud` | Comprueba que el backend está arriba           |
+| POST   | `/gramatica` | Recibe `{ "gramatica": str }`; devuelve la gramática leída, los pasos de simplificación, la CNF y sus pasos |
 | POST   | `/cyk`   | Recibe `{ "gramatica": str, "oracion": str }`  |
 
 `/cyk` responde 501 hasta que el motor esté implementado.
