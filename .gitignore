@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Salida generada por el CLI
+salida/*.png
+salida/*.gv
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
