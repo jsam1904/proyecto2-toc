@@ -41,6 +41,9 @@ export default function Pasos({ pasos, render, velocidadMs = 900 }) {
 
   if (total === 0) return <p className="vacio">No hay pasos para mostrar.</p>;
 
+  // Si llega una lista más corta, `i` aún apunta a la anterior hasta que corre el efecto.
+  const actual = Math.min(i, ultimo);
+
   return (
     <div className="pasos" tabIndex={0} onKeyDown={onKeyDown}>
       <div className="pasos-controles">
@@ -75,10 +78,10 @@ export default function Pasos({ pasos, render, velocidadMs = 900 }) {
           aria-label="Paso"
         />
         <span className="pasos-contador">
-          {i + 1} / {total}
+          {actual + 1} / {total}
         </span>
       </div>
-      <div className="pasos-contenido">{render(pasos[i], i)}</div>
+      <div className="pasos-contenido">{render(pasos[actual], actual)}</div>
     </div>
   );
 }
