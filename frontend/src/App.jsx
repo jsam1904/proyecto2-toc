@@ -1,12 +1,39 @@
-import { useState } from "react";
-import { ejecutarCyk } from "./api.js";
+import { useEffect, useState } from "react";
+import { procesarGramatica } from "./api.js";
+import Cnf from "./pestanas/Cnf.jsx";
+import Gramatica from "./pestanas/Gramatica.jsx";
 import Pendiente from "./pestanas/Pendiente.jsx";
+import Simplificacion from "./pestanas/Simplificacion.jsx";
 
-const GRAMATICA_EJEMPLO = `E -> T X
+// Copias de gramaticas/1.txt e ingles.txt.
+const EJEMPLOS = {
+  expresiones: {
+    nombre: "Expresiones (1.txt)",
+    oracion: "id + id * id",
+    gramatica: `E -> T X
 X -> + T X | e
 T -> F Y
 Y -> * F Y | e
-F -> ( E ) | id`;
+F -> ( E ) | id`,
+  },
+  ingles: {
+    nombre: "Inglés (ingles.txt)",
+    oracion: "she eats a cake with a fork",
+    gramatica: `S -> NP VP
+VP -> VP PP
+VP -> V NP
+VP -> cooks | drinks | eats | cuts
+PP -> P NP
+NP -> Det N
+NP -> he | she
+V -> cooks | drinks | eats | cuts
+P -> in | with
+N -> cat | dog
+N -> beer | cake | juice | meat | soup
+N -> fork | knife | oven | spoon
+Det -> a | the`,
+  },
+};
 
 const PESTANAS = [
   {
@@ -47,26 +74,63 @@ const PESTANAS = [
 ];
 
 export default function App() {
-  const [gramatica, setGramatica] = useState(GRAMATICA_EJEMPLO);
-  const [oracion, setOracion] = useState("id + id * id");
+  const [gramatica, setGramatica] = useState(EJEMPLOS.expresiones.gramatica);
+  const [oracion, setOracion] = useState(EJEMPLOS.expresiones.oracion);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [pestana, setPestana] = useState("gramatica");
+  const [fase1, setFase1] = useState(null); // respuesta de /gramatica
 
-  async function ejecutar() {
+  async function ejecutar(texto = gramatica) {
     setCargando(true);
     setError("");
     try {
-      // Las pestañas aún no consumen la respuesta; se conectarán cuando el motor esté listo.
-      await ejecutarCyk(gramatica, oracion);
+      // Fase 1 (Javier). Cuando /cyk esté listo, aquí se llama también a ejecutarCyk.
+      setFase1(await procesarGramatica(texto));
     } catch (e) {
       setError(e.message);
+      setFase1(null);
     } finally {
       setCargando(false);
     }
   }
 
+  function cargarEjemplo(id) {
+    const ejemplo = EJEMPLOS[id];
+    setGramatica(ejemplo.gramatica);
+    setOracion(ejemplo.oracion);
+    ejecutar(ejemplo.gramatica);
+  }
+
+  useEffect(() => {
+    ejecutar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const actual = PESTANAS.find((p) => p.id === pestana);
+
+  function contenido() {
+    if (["gramatica", "simplificacion", "cnf"].includes(pestana)) {
+      if (!fase1) {
+        return (
+          <p className="inicio-vacio">
+            {cargando ? "Calculando…" : "Escribe una gramática y presiona Ejecutar."}
+          </p>
+        );
+      }
+      if (pestana === "gramatica") return <Gramatica gramatica={fase1.gramatica} />;
+      if (pestana === "simplificacion") return <Simplificacion pasos={fase1.simplificacion} />;
+      return <Cnf cnf={fase1.cnf} pasos={fase1.pasos_cnf} />;
+    }
+    return (
+      <Pendiente
+        titulo={actual.nombre}
+        modulo={actual.modulo}
+        responsable={actual.responsable}
+        mostrara={actual.mostrara}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -96,12 +160,22 @@ export default function App() {
               autoComplete="off"
             />
           </label>
-          <button type="button" className="primario" onClick={ejecutar} disabled={cargando}>
+          <button type="button" className="primario" onClick={() => ejecutar()} disabled={cargando}>
             {cargando ? "Calculando…" : "Ejecutar"}
           </button>
-          <button type="button" onClick={() => setGramatica(GRAMATICA_EJEMPLO)}>
-            Cargar ejemplo
-          </button>
+          <select
+            className="ejemplos"
+            value=""
+            onChange={(e) => e.target.value && cargarEjemplo(e.target.value)}
+            aria-label="Cargar ejemplo"
+          >
+            <option value="">Cargar ejemplo…</option>
+            {Object.entries(EJEMPLOS).map(([id, ej]) => (
+              <option key={id} value={id}>
+                {ej.nombre}
+              </option>
+            ))}
+          </select>
         </div>
         {error && <p className="error">{error}</p>}
       </header>
@@ -119,14 +193,7 @@ export default function App() {
         ))}
       </nav>
 
-      <main>
-        <Pendiente
-          titulo={actual.nombre}
-          modulo={actual.modulo}
-          responsable={actual.responsable}
-          mostrara={actual.mostrara}
-        />
-      </main>
+      <main>{contenido()}</main>
     </div>
   );
 }
