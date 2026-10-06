@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { procesarGramatica } from "./api.js";
+import { ejecutarCyk } from "./api.js";
+import Arbol from "./pestanas/Arbol.jsx";
 import Cnf from "./pestanas/Cnf.jsx";
+import Cyk from "./pestanas/Cyk.jsx";
 import Gramatica from "./pestanas/Gramatica.jsx";
-import Pendiente from "./pestanas/Pendiente.jsx";
 import Simplificacion from "./pestanas/Simplificacion.jsx";
 
 // Copias de gramaticas/1.txt e ingles.txt.
@@ -79,17 +80,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [pestana, setPestana] = useState("gramatica");
-  const [fase1, setFase1] = useState(null); // respuesta de /gramatica
+  const [datos, setDatos] = useState(null); // respuesta de /cyk (incluye todo lo de /gramatica)
 
-  async function ejecutar(texto = gramatica) {
+  async function ejecutar(texto = gramatica, w = oracion) {
     setCargando(true);
     setError("");
     try {
-      // Fase 1 (Javier). Cuando /cyk esté listo, aquí se llama también a ejecutarCyk.
-      setFase1(await procesarGramatica(texto));
+      setDatos(await ejecutarCyk(texto, w));
     } catch (e) {
       setError(e.message);
-      setFase1(null);
+      setDatos(null);
     } finally {
       setCargando(false);
     }
@@ -99,7 +99,7 @@ export default function App() {
     const ejemplo = EJEMPLOS[id];
     setGramatica(ejemplo.gramatica);
     setOracion(ejemplo.oracion);
-    ejecutar(ejemplo.gramatica);
+    ejecutar(ejemplo.gramatica, ejemplo.oracion);
   }
 
   useEffect(() => {
@@ -107,30 +107,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const actual = PESTANAS.find((p) => p.id === pestana);
-
   function contenido() {
-    if (["gramatica", "simplificacion", "cnf"].includes(pestana)) {
-      if (!fase1) {
-        return (
-          <p className="inicio-vacio">
-            {cargando ? "Calculando…" : "Escribe una gramática y presiona Ejecutar."}
-          </p>
-        );
-      }
-      if (pestana === "gramatica") return <Gramatica gramatica={fase1.gramatica} />;
-      if (pestana === "simplificacion") return <Simplificacion pasos={fase1.simplificacion} />;
-      return <Cnf cnf={fase1.cnf} pasos={fase1.pasos_cnf} />;
+    if (!datos) {
+      return (
+        <p className="inicio-vacio">
+          {cargando ? "Calculando…" : "Escribe una gramática y una oración y presiona Ejecutar."}
+        </p>
+      );
     }
-    return (
-      <Pendiente
-        titulo={actual.nombre}
-        modulo={actual.modulo}
-        responsable={actual.responsable}
-        mostrara={actual.mostrara}
-      />
-    );
+    if (pestana === "gramatica") return <Gramatica gramatica={datos.gramatica} />;
+    if (pestana === "simplificacion") return <Simplificacion pasos={datos.simplificacion} />;
+    if (pestana === "cnf") return <Cnf cnf={datos.cnf} pasos={datos.pasos_cnf} />;
+    if (pestana === "cyk") return <Cyk data={datos} />;
+    return <Arbol data={datos} />;
   }
+
+  const ms = (x) => (x < 1 ? `${(x * 1000).toFixed(1)} µs` : `${x.toFixed(3)} ms`);
 
   return (
     <div className="app">
@@ -178,6 +170,21 @@ export default function App() {
           </select>
         </div>
         {error && <p className="error">{error}</p>}
+
+        {datos && (
+          <div className="veredicto-barra">
+            <span className={"veredicto grande " + (datos.cyk.acepta ? "si" : "no")}>
+              {datos.cyk.acepta ? "SÍ" : "NO"}
+            </span>
+            <span>
+              w {datos.cyk.acepta ? "∈" : "∉"} L(G)
+              {datos.cyk.error_tokens && ` — ${datos.cyk.error_tokens}`}
+            </span>
+            <span className="tiempo">CYK: {ms(datos.cyk.tiempo_ms)}</span>
+            <span className="tiempo">simplificación + CNF: {ms(datos.tiempo_conversion_ms)}</span>
+            {datos.cyk.num_arboles > 1 && <span className="tiempo">{datos.cyk.num_arboles} árboles (ambigua)</span>}
+          </div>
+        )}
       </header>
 
       <nav className="pestanas-nav" aria-label="Etapas">
