@@ -43,7 +43,12 @@ const ESTILO = [
   },
 ];
 
-/** Dibuja un parse tree {nodos:[{id,label,tipo}], aristas:[{id,de,a}]}. */
+/**
+ * Dibuja un parse tree {nodos:[{id,label,tipo}], aristas:[{id,de,a}]}.
+ * @param {object} props
+ * @param {object} props.grafo     {nodos, aristas} devuelto por motor/arbol.py: a_grafo().
+ * @param {number} [props.altura]  Alto en px del lienzo.
+ */
 export default function Arbol({ grafo, altura = 420 }) {
   const contenedor = useRef(null);
 
