@@ -1,6 +1,11 @@
 import { useState } from "react";
 import ArbolGrafo from "../components/ArbolGrafo.jsx";
 
+/**
+ * Pestaña Árbol: parse tree de motor/arbol.py, con vista CNF o sin auxiliares.
+ * @param {object} props
+ * @param {object} props.data  Respuesta completa de /cyk (incluye arbol y cyk).
+ */
 export default function Arbol({ data }) {
   const [vista, setVista] = useState("simplificado");
   const arbol = data.arbol;
