@@ -1,7 +1,11 @@
 import Pasos from "../components/Pasos.jsx";
 import { PasoGramatica } from "../components/Producciones.jsx";
 
-/** Pestaña Simplificación: pasos de motor/simplificacion.py (ε, unitarias, inútiles). */
+/**
+ * Pestaña Simplificación: pasos de motor/simplificacion.py (ε, unitarias, inútiles).
+ * @param {object} props
+ * @param {Array} props.pasos  Pasos devueltos por motor.simplificacion.simplificar().
+ */
 export default function Simplificacion({ pasos }) {
   return (
     <section className="pestana">

@@ -3,8 +3,16 @@ import Pasos from "../components/Pasos.jsx";
 
 const conjunto = (xs) => (xs.length ? xs.join(" ") : "∅");
 
-/** Pirámide CYK: fila = largo de la subcadena (arriba la frase completa),
- *  columna = posición donde empieza. Solo muestra las celdas ya llenadas. */
+/**
+ * Pirámide CYK: fila = largo de la subcadena (arriba la frase completa),
+ * columna = posición donde empieza. Solo muestra las celdas ya llenadas.
+ *
+ * @param {object} props
+ * @param {object} props.cyk           Resultado de motor.cyk.ejecutar_cyk().
+ * @param {Set<string>} props.hasta    Claves "i,j" de las celdas ya llenadas hasta el paso actual.
+ * @param {string} props.actual        Clave "i,j" de la celda del paso actual.
+ * @param {Set<string>} props.resaltadas  Claves "i,j" de las celdas fuente del paso actual.
+ */
 function Piramide({ cyk, hasta, actual, resaltadas }) {
   const n = cyk.n;
   const filas = [];
@@ -47,6 +55,11 @@ function Piramide({ cyk, hasta, actual, resaltadas }) {
   );
 }
 
+/**
+ * Pestaña CYK: tabla y pasos de motor/cyk.py, recorribles con <Pasos>.
+ * @param {object} props
+ * @param {object} props.data  Respuesta completa de /cyk (incluye cyk, gramatica, epsilon_en_lenguaje).
+ */
 export default function Cyk({ data }) {
   const cyk = data.cyk;
   const orden = useMemo(() => cyk.pasos.map((p) => `${p.i},${p.j}`), [cyk]);

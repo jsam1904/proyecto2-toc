@@ -1,5 +1,12 @@
 import Producciones from "../components/Producciones.jsx";
 
+/**
+ * Lista de símbolos como chips (p. ej. variables o terminales).
+ * @param {object} props
+ * @param {string} props.titulo      Título de la cinta.
+ * @param {string[]} props.simbolos  Símbolos a mostrar.
+ * @param {string} props.clase      Clase CSS de cada chip.
+ */
 function Chips({ titulo, simbolos, clase }) {
   return (
     <div className="chips">
@@ -15,7 +22,11 @@ function Chips({ titulo, simbolos, clase }) {
   );
 }
 
-/** Pestaña Gramática: lo que leyó motor/gramatica.py del .txt. */
+/**
+ * Pestaña Gramática: lo que leyó motor/gramatica.py del .txt.
+ * @param {object} props
+ * @param {object} props.gramatica  Gramática leída (formato de motor/gramatica.py).
+ */
 export default function Gramatica({ gramatica }) {
   const total = Object.values(gramatica.producciones).reduce((n, c) => n + c.length, 0);
   return (
