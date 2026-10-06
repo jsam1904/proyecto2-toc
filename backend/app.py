@@ -1,6 +1,6 @@
-"""API FastAPI: expone POST /cyk.
+"""API FastAPI: expone POST /gramatica y POST /cyk.
 
-Responsable: Angel. Por ahora /cyk responde 501 hasta que el motor esté listo.
+Responsable: Angel (/cyk) y Javier (/gramatica).
 """
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from motor.cnf import a_cnf
 from motor.gramatica import leer_texto
+from motor.main import ejecutar
 from motor.simplificacion import simplificar
 
 app = FastAPI(title="Proyecto 2 — CNF y CYK")
@@ -46,4 +47,9 @@ def gramatica(peticion: PeticionGramatica):
 
 @app.post("/cyk")
 def cyk(peticion: Peticion):
-    raise HTTPException(status_code=501, detail="El motor CYK aún no está implementado.")
+    """Pipeline completo (Angel): todo lo de /gramatica más la tokenización, la tabla
+    CYK con sus pasos, el veredicto, el tiempo y el parse tree."""
+    try:
+        return ejecutar(peticion.gramatica, peticion.oracion)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
