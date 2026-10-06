@@ -129,6 +129,18 @@ button.primario:hover:not(:disabled) {
   background: var(--rojo-fondo);
   color: #7a1912;
 }
+.advertencias {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1.5px solid var(--ambar);
+  border-radius: var(--radio);
+  background: var(--ambar-fondo);
+  color: #6b4500;
+  list-style: none;
+}
+.advertencias li + li {
+  margin-top: 0.25rem;
+}
 
 .inicio-vacio {
   padding: 3rem 1rem;
