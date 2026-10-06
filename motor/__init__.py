@@ -1,4 +1,4 @@
-"""Motor del proyecto: única fuente de verdad del pipeline.
+"""Motor del proyecto: lectura de gramáticas, simplificación, CNF, CYK y parse tree.
 
-Responsable: Javier y Angel. Pendiente de implementar.
+Responsable: Javier y Angel. Ver motor/main.py para el pipeline completo.
 """
