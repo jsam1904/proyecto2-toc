@@ -17,7 +17,19 @@ Nodo: {"simbolo", "rango": [i, j], "hijos": [...], "hoja": bool}
 
 
 def construir(g, tokens, tabla):
-    """Parse tree de la oración completa, o None si no fue aceptada."""
+    """
+    Construye el parse tree de la oración completa.
+
+    Baja recursivamente desde el símbolo inicial en la celda [0][n-1] siguiendo los
+    backpointers de cyk.py: A -> B C (con su corte k) da dos hijos y A -> token da una
+    hoja. Si la oración es ambigua, toma el primer árbol que encuentra.
+
+    @param g: dict  Gramática en CNF.
+    @param tokens: list[str]  Oración ya tokenizada.
+    @param tabla: list[list[dict]]  Tabla devuelta por cyk.llenar_tabla.
+    @return: dict | None  Nodo raíz ({"simbolo", "rango", "hijos", "hoja"}), o None si la
+        oración no fue aceptada.
+    """
     n = len(tokens)
     if n == 0 or g["inicial"] not in tabla[0][n - 1]:
         return None
@@ -34,8 +46,16 @@ def construir(g, tokens, tabla):
 
 
 def colapsar(nodo, auxiliares):
-    """Quita los nodos de variables auxiliares subiendo sus hijos. La raíz nunca es
-    auxiliar (es el símbolo inicial), así que siempre queda un solo árbol."""
+    """
+    Quita los nodos de variables auxiliares del árbol, subiendo sus hijos al padre.
+
+    La raíz nunca es auxiliar (es el símbolo inicial de la gramática simplificada), así
+    que siempre queda un solo árbol.
+
+    @param nodo: dict  Raíz del árbol (nodo de construir()).
+    @param auxiliares: set[str]  Variables que la CNF agregó y no deben aparecer.
+    @return: dict  Árbol sin nodos auxiliares.
+    """
 
     def visitar(n):
         if n["hoja"]:
@@ -49,14 +69,27 @@ def colapsar(nodo, auxiliares):
 
 
 def a_corchetes(nodo):
-    """Notación con corchetes: [S [NP she] [VP cooks]]."""
+    """
+    Convierte un árbol a notación con corchetes, p. ej. [S [NP she] [VP cooks]].
+
+    @param nodo: dict  Raíz del árbol a convertir.
+    @return: str  Texto en notación de corchetes.
+    """
     if nodo["hoja"]:
         return nodo["simbolo"]
     return "[" + nodo["simbolo"] + " " + " ".join(a_corchetes(h) for h in nodo["hijos"]) + "]"
 
 
 def a_grafo(raiz, auxiliares=()):
-    """Nodos y aristas para Cytoscape. tipo: "variable", "auxiliar" u "hoja"."""
+    """
+    Convierte el árbol a nodos y aristas para dibujarlo con Cytoscape en el frontend.
+
+    @param raiz: dict  Raíz del árbol a convertir.
+    @param auxiliares: set[str]  Variables auxiliares de la CNF, para marcarlas con
+        tipo "auxiliar" en vez de "variable".
+    @return: dict  {"nodos": [...], "aristas": [...]}; cada nodo tiene id, label, tipo
+        ("variable", "auxiliar" u "hoja") y rango.
+    """
     nodos, aristas = [], []
 
     def visitar(n, padre):
@@ -73,14 +106,29 @@ def a_grafo(raiz, auxiliares=()):
 
 
 def hojas(nodo):
-    """Terminales del árbol de izquierda a derecha (debe ser la oración tokenizada)."""
+    """
+    Lista los terminales del árbol de izquierda a derecha.
+
+    @param nodo: dict  Raíz del árbol.
+    @return: list[str]  Terminales en orden; debe coincidir con la oración tokenizada.
+    """
     if nodo["hoja"]:
         return [nodo["simbolo"]]
     return [s for h in nodo["hijos"] for s in hojas(h)]
 
 
 def describir(g_cnf, g_simple, tokens, tabla):
-    """Todo lo que el frontend y el CLI necesitan del árbol, o None si no hay árbol."""
+    """
+    Arma todo lo que el frontend y el CLI necesitan del árbol.
+
+    @param g_cnf: dict  Gramática en CNF (la que decidió CYK).
+    @param g_simple: dict  Gramática simplificada, antes de la CNF (define qué variables
+        son auxiliares: las que están en g_cnf pero no en g_simple).
+    @param tokens: list[str]  Oración ya tokenizada.
+    @param tabla: list[list[dict]]  Tabla devuelta por cyk.llenar_tabla.
+    @return: dict | None  {"auxiliares", "cnf", "simplificado", "corchetes_cnf",
+        "corchetes_simplificado"}, o None si la oración no fue aceptada.
+    """
     raiz = construir(g_cnf, tokens, tabla)
     if raiz is None:
         return None

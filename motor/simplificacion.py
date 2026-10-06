@@ -19,9 +19,18 @@ listo para recorrerse en el componente <Pasos> del frontend.
 from itertools import product
 
 from motor.gramatica import EPSILON, a_texto, construir
+from motor.limites import MAX_ANULABLES_POR_CUERPO
 
 
 def paso(titulo, detalle, gramatica):
+    """
+    Arma el dict de un paso del pipeline para el frontend y el CLI.
+
+    @param titulo: str  Nombre del paso.
+    @param detalle: str  Explicación de lo que hizo este paso.
+    @param gramatica: dict  Gramática resultante, con el formato de construir().
+    @return: dict  {"titulo", "detalle", "gramatica", "texto"}.
+    """
     return {
         "titulo": titulo,
         "detalle": detalle,
@@ -31,11 +40,25 @@ def paso(titulo, detalle, gramatica):
 
 
 def _conjunto(simbolos):
+    """
+    Formatea una lista de símbolos como conjunto matemático para los mensajes de "detalle".
+
+    @param simbolos: list[str]  Símbolos a mostrar.
+    @return: str  "{a, b, c}", o "∅" si la lista está vacía.
+    """
     return "{" + ", ".join(simbolos) + "}" if simbolos else "∅"
 
 
 def anulables(g):
-    """Variables que derivan ε, en orden de las variables de la gramática."""
+    """
+    Calcula las variables anulables de la gramática (las que derivan ε).
+
+    Repite vueltas agregando A si algún cuerpo de A tiene solo símbolos anulables, hasta
+    que una vuelta no agregue nada.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: list[str]  Variables anulables, en el orden de g["variables"].
+    """
     prods = g["producciones"]
     nulos = set()
     cambio = True
@@ -49,11 +72,30 @@ def anulables(g):
 
 
 def eliminar_epsilon(g):
+    """
+    Quita las producciones ε, reemplazando cada cuerpo por todas sus variantes sin los
+    símbolos anulables (menos la variante vacía).
+
+    Antes de generar las variantes de un cuerpo, revisa cuántos de sus símbolos son
+    anulables: si supera MAX_ANULABLES_POR_CUERPO, lanza el error en vez de generar las
+    2^k combinaciones.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: dict  Gramática sin producciones ε.
+    @raises ValueError: si un cuerpo tiene más de MAX_ANULABLES_POR_CUERPO símbolos anulables.
+    """
     nulos = set(anulables(g))
     nuevas = {}
     for a, cuerpos in g["producciones"].items():
         lista = []
         for cuerpo in cuerpos:
+            n_anulables = sum(1 for s in cuerpo if s in nulos)
+            if n_anulables > MAX_ANULABLES_POR_CUERPO:
+                cuerpo_txt = " ".join(cuerpo) if cuerpo else "ε"
+                raise ValueError(
+                    f"La producción {a} -> {cuerpo_txt} tiene {n_anulables} símbolos anulables "
+                    f"(máximo {MAX_ANULABLES_POR_CUERPO}); redúcela antes de simplificar."
+                )
             # Para cada anulable: conservarlo u omitirlo. product() da primero el cuerpo completo.
             opciones = [[(s,), ()] if s in nulos else [(s,)] for s in cuerpo]
             for eleccion in product(*opciones):
@@ -65,7 +107,15 @@ def eliminar_epsilon(g):
 
 
 def pares_unitarios(g):
-    """Para cada variable A, las variables B tales que A =>* B solo con unitarias (A incluida)."""
+    """
+    Calcula los pares unitarios de cada variable.
+
+    Hace un BFS desde A siguiendo solo producciones A -> B (B variable) para encontrar
+    todas las variables alcanzables así, A incluida.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: dict[str, list[str]]  Variable -> lista de variables alcanzadas por unitarias.
+    """
     prods = g["producciones"]
     pares = {}
     for a in g["variables"]:
@@ -79,10 +129,24 @@ def pares_unitarios(g):
 
 
 def es_unitaria(cuerpo, g):
+    """
+    Indica si un cuerpo es una producción unitaria (A -> B con B variable).
+
+    @param cuerpo: list[str]  Cuerpo de una producción.
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: bool  True si el cuerpo es un solo símbolo y ese símbolo es variable.
+    """
     return len(cuerpo) == 1 and cuerpo[0] in g["producciones"]
 
 
 def eliminar_unitarias(g):
+    """
+    Quita las producciones unitarias, reemplazando cada A -> B por las producciones no
+    unitarias de todas las variables alcanzables desde A por cadenas de unitarias.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py (ya sin ε).
+    @return: dict  Gramática sin producciones unitarias.
+    """
     pares = pares_unitarios(g)
     nuevas = {}
     for a in g["variables"]:
@@ -96,7 +160,15 @@ def eliminar_unitarias(g):
 
 
 def generadores(g):
-    """Variables que derivan alguna cadena de terminales."""
+    """
+    Calcula las variables generadoras (las que derivan alguna cadena de terminales).
+
+    Repite vueltas agregando A si algún cuerpo de A usa solo símbolos generadores o
+    terminales, hasta que una vuelta no agregue nada.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: list[str]  Variables generadoras, en el orden de g["variables"].
+    """
     prods = g["producciones"]
     gen = set()
     cambio = True
@@ -109,9 +181,24 @@ def generadores(g):
     return [a for a in g["variables"] if a in gen]
 
 
-def eliminar_no_generadores(g):
+def eliminar_no_generadores(g, acepta_vacio=False):
+    """
+    Quita las variables y producciones que no generan ninguna cadena de terminales.
+
+    Si el símbolo inicial no genera nada, normalmente es un error (lenguaje vacío). La
+    excepción es una gramática cuyo lenguaje es exactamente {ε}: ahí el inicial tampoco
+    genera una cadena de terminales, pero `acepta_vacio=True` permite seguir y deja al
+    inicial sin producciones en vez de lanzar el error.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py (ya sin ε ni unitarias).
+    @param acepta_vacio: bool  True si el símbolo inicial es anulable (el lenguaje puede
+        ser exactamente {ε} en vez de vacío).
+    @return: dict  Gramática sin símbolos no generadores.
+    @raises ValueError: si el inicial no genera nada y `acepta_vacio` es False.
+    """
     gen = set(generadores(g))
-    if g["inicial"] not in gen:
+    vacio = g["inicial"] not in gen
+    if vacio and not acepta_vacio:
         raise ValueError(
             f"El símbolo inicial {g['inicial']} no genera ninguna cadena: el lenguaje es vacío."
         )
@@ -119,12 +206,20 @@ def eliminar_no_generadores(g):
     nuevas = {
         a: [c for c in cuerpos if all(s in gen or s not in prods for s in c)]
         for a, cuerpos in prods.items()
-        if a in gen
+        if a in gen or (vacio and a == g["inicial"])
     }
     return construir(g["inicial"], nuevas)
 
 
 def alcanzables(g):
+    """
+    Calcula las variables alcanzables desde el símbolo inicial.
+
+    Hace un BFS desde el inicial siguiendo cualquier producción.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: list[str]  Variables alcanzables, en el orden de g["variables"].
+    """
     prods = g["producciones"]
     vistos = [g["inicial"]]
     for a in vistos:  # BFS sobre la lista que crece
@@ -136,17 +231,42 @@ def alcanzables(g):
 
 
 def eliminar_inalcanzables(g):
+    """
+    Quita las variables y producciones no alcanzables desde el símbolo inicial.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: dict  Gramática sin símbolos inalcanzables.
+    """
     alc = set(alcanzables(g))
     nuevas = {a: c for a, c in g["producciones"].items() if a in alc}
     return construir(g["inicial"], nuevas)
 
 
 def _quitadas(antes, despues):
+    """
+    Lista las variables que estaban en `antes` y ya no están en `despues`.
+
+    @param antes: dict  Gramática previa.
+    @param despues: dict  Gramática posterior.
+    @return: list[str]  Variables quitadas, en el orden de `antes`.
+    """
     return [a for a in antes["variables"] if a not in despues["variables"]]
 
 
 def simplificar(g):
-    """Aplica las tres eliminaciones y devuelve `(gramatica_simplificada, pasos)`."""
+    """
+    Aplica las tres eliminaciones (ε, unitarias, inútiles) en orden.
+
+    Si el símbolo inicial es anulable pero no genera ninguna cadena de terminales, el
+    lenguaje es exactamente {ε}: la gramática resultante queda sin producciones en vez de
+    lanzar el error de lenguaje vacío.
+
+    @param g: dict  Gramática leída con motor/gramatica.py.
+    @return: tuple[dict, list[dict]]  (gramatica_simplificada, pasos), cada paso con el
+        formato de paso().
+    @raises ValueError: si el lenguaje es vacío (el inicial no genera nada y no es
+        anulable) o si un cuerpo excede MAX_ANULABLES_POR_CUERPO.
+    """
     pasos = [paso("Gramática original", "Gramática leída del archivo, sin cambios.", g)]
 
     # 1. Producciones ε
@@ -182,14 +302,19 @@ def simplificar(g):
 
     # 3a. No generadores
     gen = generadores(sin_u)
-    sin_ng = eliminar_no_generadores(sin_u)
+    vacio = g["inicial"] not in set(gen)
+    sin_ng = eliminar_no_generadores(sin_u, acepta_vacio=(g["inicial"] in nulos))
     quitadas = _quitadas(sin_u, sin_ng)
     detalle = f"Generadores: {_conjunto(gen)}. "
-    detalle += (
-        f"Se eliminan {_conjunto(quitadas)} y las producciones que las usan."
-        if quitadas
-        else "Todas las variables generan alguna cadena."
-    )
+    if vacio:
+        detalle += (
+            g["inicial"] + " no genera ninguna cadena de terminales, pero es anulable: "
+            "el lenguaje es {ε} y la gramática queda sin producciones."
+        )
+    elif quitadas:
+        detalle += f"Se eliminan {_conjunto(quitadas)} y las producciones que las usan."
+    else:
+        detalle += "Todas las variables generan alguna cadena."
     pasos.append(paso("Eliminar símbolos no generadores", detalle, sin_ng))
 
     # 3b. Inalcanzables

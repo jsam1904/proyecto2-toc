@@ -48,6 +48,13 @@ NOMBRES_TERMINALES = {
 
 
 def _libre(candidato, usados):
+    """
+    Busca un nombre libre a partir de `candidato`, agregando un número si ya está usado.
+
+    @param candidato: str  Nombre preferido.
+    @param usados: set[str]  Nombres ya ocupados (variables y terminales).
+    @return: str  `candidato`, o `candidato` + número si no estaba libre.
+    """
     if candidato not in usados:
         return candidato
     i = 1
@@ -57,6 +64,16 @@ def _libre(candidato, usados):
 
 
 def _nombre_terminal(t, usados):
+    """
+    Elige el nombre de la variable nueva para el terminal `t`.
+
+    Usa el mnemotécnico de NOMBRES_TERMINALES si existe; si no, el terminal en
+    mayúsculas, o "T_<t>" si ya está en mayúsculas o no es alfanumérico.
+
+    @param t: str  Terminal a reemplazar.
+    @param usados: set[str]  Nombres ya ocupados.
+    @return: str  Nombre de variable libre para `t`.
+    """
     candidato = NOMBRES_TERMINALES.get(t)
     if candidato is None:
         candidato = t.upper() if t.isalnum() and t.upper() != t else f"T_{t}"
@@ -64,6 +81,14 @@ def _nombre_terminal(t, usados):
 
 
 def _nombre_cola(usados):
+    """
+    Elige el nombre de la variable nueva para una cola de binarización.
+
+    Usa letras libres de la Z hacia la A; si se agotan, recurre a _libre("N1", ...).
+
+    @param usados: set[str]  Nombres ya ocupados.
+    @return: str  Nombre de variable libre para la cola.
+    """
     for letra in reversed(ascii_uppercase):
         if letra not in usados:
             return letra
@@ -71,7 +96,15 @@ def _nombre_cola(usados):
 
 
 def es_cnf(g):
-    """True si toda producción es A -> B C (variables) o A -> a (terminal)."""
+    """
+    Indica si toda producción de `g` ya es A -> B C (variables) o A -> a (terminal).
+
+    Una gramática sin ninguna producción (p. ej. cuando su lenguaje es {ε}) cumple esto
+    trivialmente, porque no hay ningún cuerpo que lo incumpla.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @return: bool  True si `g` ya está en CNF.
+    """
     prods = g["producciones"]
     for cuerpos in prods.values():
         for c in cuerpos:
@@ -84,6 +117,12 @@ def es_cnf(g):
 
 
 def _validar_simplificada(g):
+    """
+    Revisa que `g` no tenga producciones ε ni unitarias antes de convertirla a CNF.
+
+    @param g: dict  Gramática con el formato de motor/gramatica.py.
+    @raises ValueError: si alguna variable tiene una producción ε o unitaria.
+    """
     for a, cuerpos in g["producciones"].items():
         for c in cuerpos:
             if not c:
@@ -95,11 +134,28 @@ def _validar_simplificada(g):
 
 
 def _texto_cuerpo(c):
+    """
+    Junta los símbolos de un cuerpo con espacios, para los mensajes de "detalle".
+
+    @param c: list[str]  Cuerpo de una producción.
+    @return: str  Símbolos separados por espacios.
+    """
     return " ".join(c)
 
 
 def a_cnf(g):
-    """Convierte una gramática simplificada a CNF y devuelve `(gramatica_cnf, pasos)`."""
+    """
+    Convierte una gramática simplificada a Forma Normal de Chomsky.
+
+    Si `g` ya está en CNF (incluida una gramática sin producciones, caso {ε}), la deja
+    intacta. Si no, primero reemplaza los terminales en cuerpos de longitud >= 2 por
+    variables nuevas, y luego binariza los cuerpos de longitud >= 3.
+
+    @param g: dict  Gramática simplificada (sin ε, sin unitarias, sin inútiles).
+    @return: tuple[dict, list[dict]]  (gramatica_cnf, pasos), cada paso con el formato de
+        motor/simplificacion.py: paso().
+    @raises ValueError: si `g` tiene alguna producción ε o unitaria (no está simplificada).
+    """
     _validar_simplificada(g)
     prods = g["producciones"]
     usados = set(g["variables"]) | set(g["terminales"])
@@ -147,6 +203,7 @@ def a_cnf(g):
     var_de_cola = {}  # tupla de símbolos -> variable nueva, en orden de creación
 
     def cola(simbolos):
+        """Variable que representa la cola `simbolos` (la reutiliza si ya existe)."""
         if len(simbolos) == 1:
             return simbolos[0]
         clave = tuple(simbolos)

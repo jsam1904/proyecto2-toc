@@ -20,38 +20,62 @@ tokenización y los pasos para el frontend quedan fuera de la medición.
 
 import time
 
+from motor.limites import MAX_CHARS_ORACION, MAX_ENTERO_SEGURO_JS, MAX_TOKENS
+
 
 # ---------------------------------------------------------------------------
 # Tokenización
 # ---------------------------------------------------------------------------
 
 def tokenizar(oracion, terminales):
-    """Parte la oración en terminales de la gramática.
+    """
+    Parte la oración en terminales de la gramática.
 
     1. Se separa por espacios.
     2. Si un trozo completo es terminal, es un token ("cake").
-    3. Si no, se parte por el prefijo más largo contra los terminales, para entradas sin
-       espacios como "(id*id)+id".
-    Si algo no coincide tal cual, se intenta en minúsculas ("She" -> "she").
+    3. Si no, se parte contra los terminales con retroceso (backtracking): en cada
+       posición prueba primero el terminal más largo que calce, pero si ese camino no
+       llega a partir el trozo completo, retrocede y prueba el siguiente más largo. Así
+       "abc" con terminales {a, ab, bc} da ["a", "bc"] en vez de fallar tras tomar "ab".
+    Si un trozo no coincide tal cual, se intenta en minúsculas ("She" -> "she").
 
-    Devuelve (tokens, error); error es None o un mensaje.
+    @param oracion: str  Oración a tokenizar.
+    @param terminales: list[str]  Terminales de la gramática (en CNF).
+    @return: tuple[list[str], str | None]  (tokens, error); error es None si se pudo
+        tokenizar toda la oración.
+    @raises ValueError: si la oración excede MAX_CHARS_ORACION caracteres o produce más
+        de MAX_TOKENS tokens.
     """
+    if len(oracion) > MAX_CHARS_ORACION:
+        raise ValueError(f"La oración tiene {len(oracion)} caracteres; el máximo es {MAX_CHARS_ORACION}.")
     terminales = set(terminales)
     largos = sorted(terminales, key=len, reverse=True)
     tokens = []
 
     def partir(trozo):
-        res = []
-        i = 0
-        while i < len(trozo):
+        memo = {}
+        progreso = 0
+
+        def ir(i):
+            nonlocal progreso
+            progreso = max(progreso, i)
+            if i == len(trozo):
+                return []
+            if i in memo:
+                return memo[i]
             for t in largos:
                 if t and trozo.startswith(t, i):
-                    res.append(t)
-                    i += len(t)
-                    break
-            else:
-                return None, trozo[i:]
-        return res, None
+                    resto = ir(i + len(t))
+                    if resto is not None:
+                        memo[i] = [t] + resto
+                        return memo[i]
+            memo[i] = None
+            return None
+
+        resultado = ir(0)
+        if resultado is None:
+            return None, trozo[progreso:]
+        return resultado, None
 
     for trozo in oracion.split():
         if trozo in terminales:
@@ -66,6 +90,8 @@ def tokenizar(oracion, terminales):
             if partes is None:
                 return tokens, f"'{resto}' no pertenece al alfabeto de la gramática"
         tokens.extend(partes)
+    if len(tokens) > MAX_TOKENS:
+        raise ValueError(f"la oración tiene {len(tokens)} tokens; el máximo es {MAX_TOKENS}")
     return tokens, None
 
 
@@ -74,7 +100,13 @@ def tokenizar(oracion, terminales):
 # ---------------------------------------------------------------------------
 
 def _indices(g):
-    """Índices para buscar rápido: terminal -> [A] (A -> t) y (B, C) -> [A] (A -> B C)."""
+    """
+    Construye índices para buscar rápido las reglas aplicables durante CYK.
+
+    @param g: dict  Gramática en CNF.
+    @return: tuple[dict, dict]  (por_terminal, por_par): terminal -> [A] para A -> t, y
+        (B, C) -> [A] para A -> B C.
+    """
     por_terminal = {}
     por_par = {}
     for a, cuerpos in g["producciones"].items():
@@ -87,7 +119,14 @@ def _indices(g):
 
 
 def llenar_tabla(g, tokens):
-    """Núcleo del algoritmo: llena la tabla por largo de subcadena (1, 2, ..., n)."""
+    """
+    Núcleo del algoritmo: llena la tabla por largo de subcadena (1, 2, ..., n).
+
+    @param g: dict  Gramática en CNF.
+    @param tokens: list[str]  Oración ya tokenizada.
+    @return: list[list[dict]]  Tabla n×n; tabla[i][j] es {variable: [backpointers]} para
+        la subcadena tokens[i..j].
+    """
     n = len(tokens)
     por_terminal, por_par = _indices(g)
     tabla = [[None] * n for _ in range(n)]
@@ -118,10 +157,19 @@ def llenar_tabla(g, tokens):
 
 
 def ejecutar_cyk(g, tokens, epsilon_en_lenguaje=False):
-    """Corre CYK sobre `tokens` y devuelve (resultado, tabla_con_backpointers).
+    """
+    Corre CYK sobre `tokens` y devuelve (resultado, tabla_con_backpointers).
 
-    resultado = {tokens, n, acepta, tiempo_ms, tabla, pasos, num_arboles}; `tabla` es la
-    versión para JSON (solo los nombres de las variables de cada celda).
+    Si `num_arboles` supera MAX_ENTERO_SEGURO_JS (el entero más grande que JavaScript
+    representa exacto), se manda como string en vez de number para que el frontend no
+    pierda precisión al parsear el JSON.
+
+    @param g: dict  Gramática en CNF.
+    @param tokens: list[str]  Oración ya tokenizada.
+    @param epsilon_en_lenguaje: bool  True si ε pertenece al lenguaje original (se usa
+        solo cuando `tokens` está vacía).
+    @return: tuple[dict, list[list[dict]]]  (resultado, tabla); resultado tiene las
+        llaves tokens, n, acepta, tiempo_ms, tabla, pasos y num_arboles.
     """
     n = len(tokens)
     inicio = time.perf_counter()
@@ -133,6 +181,15 @@ def ejecutar_cyk(g, tokens, epsilon_en_lenguaje=False):
         acepta = g["inicial"] in tabla[0][n - 1]
     tiempo_ms = (time.perf_counter() - inicio) * 1000
 
+    if not acepta:
+        num_arboles = 0
+    elif n == 0:
+        num_arboles = 1
+    else:
+        num_arboles = contar_arboles(g, tabla)
+    if num_arboles > MAX_ENTERO_SEGURO_JS:
+        num_arboles = str(num_arboles)
+
     resultado = {
         "tokens": tokens,
         "n": n,
@@ -140,20 +197,36 @@ def ejecutar_cyk(g, tokens, epsilon_en_lenguaje=False):
         "tiempo_ms": tiempo_ms,
         "tabla": [[_ordenar(g, tabla[i][j]) if j >= i else None for j in range(n)] for i in range(n)],
         "pasos": pasos_de_tabla(g, tokens, tabla),
-        "num_arboles": (contar_arboles(g, tabla) if n else 1) if acepta else 0,
+        "num_arboles": num_arboles,
     }
     return resultado, tabla
 
 
 def _ordenar(g, celda):
-    """Variables de una celda en el orden de la gramática (se lee mejor que alfabético)."""
+    """
+    Ordena las variables de una celda como aparecen en la gramática (se lee mejor que
+    alfabético).
+
+    @param g: dict  Gramática en CNF.
+    @param celda: dict  {variable: [backpointers]} de una celda de la tabla.
+    @return: list[str]  Variables de la celda, en el orden de g["variables"].
+    """
     orden = {v: i for i, v in enumerate(g["variables"])}
     return sorted(celda, key=lambda v: orden.get(v, len(orden)))
 
 
 def pasos_de_tabla(g, tokens, tabla):
-    """Un paso por celda, en el orden en que CYK las llena, con las particiones probadas
-    y las reglas que aplicaron. Se reconstruye desde los backpointers."""
+    """
+    Arma un paso por celda, en el orden en que CYK las llena, con las particiones
+    probadas y las reglas que aplicaron.
+
+    Se reconstruye desde los backpointers que dejó llenar_tabla, sin volver a correr CYK.
+
+    @param g: dict  Gramática en CNF.
+    @param tokens: list[str]  Oración ya tokenizada.
+    @param tabla: list[list[dict]]  Tabla devuelta por llenar_tabla.
+    @return: list[dict]  Un dict por celda, con su tipo ("terminal" o "combinacion").
+    """
     n = len(tokens)
     pasos = []
     for largo in range(1, n + 1):
@@ -192,7 +265,17 @@ def pasos_de_tabla(g, tokens, tabla):
 
 
 def contar_arboles(g, tabla):
-    """Número de parse trees distintos de la oración completa (> 1 = ambigua)."""
+    """
+    Cuenta los parse trees distintos de la oración completa.
+
+    Recorre los backpointers de forma recursiva con memoización: el número de árboles de
+    una celda con A -> B C es el producto de los árboles de cada hijo, sumado sobre todas
+    las reglas y particiones que llevan a A en esa celda.
+
+    @param g: dict  Gramática en CNF.
+    @param tabla: list[list[dict]]  Tabla devuelta por llenar_tabla.
+    @return: int  Número de parse trees distintos (> 1 significa que la oración es ambigua).
+    """
     n = len(tabla)
     memo = {}
 

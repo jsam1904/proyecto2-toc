@@ -29,8 +29,14 @@ from motor.simplificacion import anulables, simplificar
 
 
 def preparar(texto):
-    """Lectura + simplificación + CNF (Javier). Lanza ValueError si la gramática es
-    inválida o su lenguaje es vacío."""
+    """
+    Lectura + simplificación + CNF (Javier).
+
+    @param texto: str  Texto de la gramática.
+    @return: dict  gramatica, simplificacion, simplificada, cnf, pasos_cnf,
+        epsilon_en_lenguaje, advertencias y tiempo_conversion_ms.
+    @raises ValueError: si la gramática es inválida, excede un límite o su lenguaje es vacío.
+    """
     inicio = time.perf_counter()
     g = leer_texto(texto)
     simple, pasos_simplificacion = simplificar(g)
@@ -42,12 +48,20 @@ def preparar(texto):
         "cnf": cnf,
         "pasos_cnf": pasos_cnf,
         "epsilon_en_lenguaje": g["inicial"] in anulables(g),
+        "advertencias": g.get("advertencias", []),
         "tiempo_conversion_ms": (time.perf_counter() - inicio) * 1000,
     }
 
 
 def analizar(prep, oracion):
-    """Tokenización + CYK + árbol sobre una gramática ya preparada."""
+    """
+    Tokenización + CYK + árbol sobre una gramática ya preparada.
+
+    @param prep: dict  Resultado de preparar().
+    @param oracion: str  Oración a evaluar.
+    @return: dict  {"oracion", "cyk", "arbol"}.
+    @raises ValueError: si la oración excede un límite de motor/limites.py.
+    """
     cnf = prep["cnf"]
     tokens, error = tokenizar(oracion, cnf["terminales"])
     if error:
@@ -61,9 +75,27 @@ def analizar(prep, oracion):
 
 
 def ejecutar(texto, oracion):
-    """Pipeline completo para el backend: todo lo de /gramatica + cyk + arbol."""
-    prep = preparar(texto)
-    return {**prep, **analizar(prep, oracion)}
+    """
+    Pipeline completo para el backend: todo lo de /gramatica + cyk + arbol.
+
+    Si construir el árbol o contar los parse trees desborda la pila de recursión (una
+    oración o gramática demasiado profunda), lo convierte en ValueError en vez de dejar
+    que suba el RecursionError.
+
+    @param texto: str  Texto de la gramática.
+    @param oracion: str  Oración a evaluar.
+    @return: dict  Todo lo de preparar() más oracion, cyk y arbol.
+    @raises ValueError: si la gramática o la oración son inválidas, exceden un límite, o
+        la recursión es demasiado profunda.
+    """
+    try:
+        prep = preparar(texto)
+        return {**prep, **analizar(prep, oracion)}
+    except RecursionError:
+        raise ValueError(
+            "La oración es demasiado compleja para procesarla (recursión demasiado profunda); "
+            "acórtala o simplifica la gramática."
+        ) from None
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +130,12 @@ def _imprimir_tabla(cyk):
 
 
 def _imprimir_resultado(r, solo_resultado):
+    """
+    Imprime el resultado de analizar() en consola: tokens, tabla, veredicto y parse tree.
+
+    @param r: dict  Resultado de analizar() ({"oracion", "cyk", "arbol"}).
+    @param solo_resultado: bool  Si es True, omite tokens y tabla.
+    """
     cyk = r["cyk"]
     if cyk["error_tokens"]:
         print(f"Tokenización: {cyk['error_tokens']}")
@@ -107,13 +145,16 @@ def _imprimir_resultado(r, solo_resultado):
             _imprimir_tabla(cyk)
     print(f"\nResultado: {'SÍ' if cyk['acepta'] else 'NO'}   (CYK tardó {cyk['tiempo_ms']:.4f} ms)")
     if r["arbol"]:
-        if cyk["num_arboles"] > 1:
-            print(f"La oración es ambigua: {cyk['num_arboles']} parse trees distintos (se muestra uno).")
+        num = cyk["num_arboles"]  # puede venir como str si supera MAX_ENTERO_SEGURO_JS
+        if isinstance(num, str) or num > 1:
+            print(f"La oración es ambigua: {num} parse trees distintos (se muestra uno).")
         print("Parse tree (CNF):           " + r["arbol"]["corchetes_cnf"])
         print("Parse tree (sin auxiliares): " + r["arbol"]["corchetes_simplificado"])
 
 
 def main():
+    """Punto de entrada del CLI: parsea argumentos y corre el pipeline sobre el archivo
+    y las oraciones dadas (o las pide por consola si no se dio ninguna)."""
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Simplifica una CFG, la pasa a CNF y decide w ∈ L(G) con CYK.")
     parser.add_argument("archivo", help="archivo .txt de la gramática")
@@ -122,8 +163,22 @@ def main():
     parser.add_argument("--json", action="store_true", help="imprime el JSON completo (primera oración)")
     args = parser.parse_args()
 
-    with open(args.archivo, encoding="utf-8") as f:
-        texto = f.read()
+    try:
+        with open(args.archivo, encoding="utf-8-sig") as f:
+            texto = f.read()
+    except FileNotFoundError:
+        print(f"Error: no se encontró el archivo '{args.archivo}'.")
+        sys.exit(1)
+    except IsADirectoryError:
+        print(f"Error: '{args.archivo}' es un directorio, no un archivo.")
+        sys.exit(1)
+    except UnicodeDecodeError:
+        print(f"Error: '{args.archivo}' no es un archivo de texto UTF-8 válido.")
+        sys.exit(1)
+    except OSError as e:
+        print(f"Error al abrir '{args.archivo}': {e.strerror or e}.")
+        sys.exit(1)
+
     try:
         if args.json:
             oracion = args.oraciones[0] if args.oraciones else ""
@@ -134,6 +189,11 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
 
+    if prep["advertencias"]:
+        print("\nAdvertencias:")
+        for a in prep["advertencias"]:
+            print(f"  - {a}")
+
     if not args.solo_resultado:
         _titulo("Simplificación")
         _imprimir_pasos(prep["simplificacion"])
@@ -142,8 +202,13 @@ def main():
         print(f"\nTiempo de simplificación + CNF: {prep['tiempo_conversion_ms']:.3f} ms")
 
     def evaluar(oracion):
+        """Imprime el resultado de CYK para una oración; reporta errores sin interrumpir
+        el programa (una oración inválida no debe tumbar las demás)."""
         _titulo(f'CYK: w = "{oracion}"')
-        _imprimir_resultado(analizar(prep, oracion), args.solo_resultado)
+        try:
+            _imprimir_resultado(analizar(prep, oracion), args.solo_resultado)
+        except ValueError as e:
+            print(f"Error: {e}")
 
     if args.oraciones:
         for oracion in args.oraciones:
@@ -153,11 +218,14 @@ def main():
     while True:
         try:
             oracion = input("w = ")
+            if not oracion.strip():
+                break
+            evaluar(oracion)
         except EOFError:
             break
-        if not oracion.strip():
+        except KeyboardInterrupt:
+            print("\nSaliendo.")
             break
-        evaluar(oracion)
 
 
 if __name__ == "__main__":
