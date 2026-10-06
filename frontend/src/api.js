@@ -17,7 +17,12 @@ async function post(ruta, cuerpo) {
     let mensaje = `El backend respondió ${res.status}`;
     try {
       const datos = await res.json();
-      if (datos.detail) mensaje = datos.detail;
+      if (Array.isArray(datos.detail)) {
+        // 422 de pydantic: lista de {loc, msg, type}.
+        mensaje = datos.detail.map((d) => (typeof d === "string" ? d : d.msg || JSON.stringify(d))).join("; ");
+      } else if (datos.detail) {
+        mensaje = datos.detail;
+      }
     } catch {
       /* sin cuerpo JSON */
     }
