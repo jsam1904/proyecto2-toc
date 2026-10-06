@@ -1,6 +1,11 @@
 const clave = (cuerpo) => JSON.stringify(cuerpo);
 
-/** Un cuerpo de producción: variables en tinta, terminales en azul, ε aparte. */
+/**
+ * Un cuerpo de producción: variables en tinta, terminales en azul, ε aparte.
+ * @param {object} props
+ * @param {string[]} props.cuerpo       Símbolos del cuerpo (vacío = ε).
+ * @param {Function} props.esVariable   (simbolo) => bool.
+ */
 function Cuerpo({ cuerpo, esVariable }) {
   if (cuerpo.length === 0) return <span className="simbolo-eps">ε</span>;
   return cuerpo.map((s, i) => (
@@ -13,6 +18,10 @@ function Cuerpo({ cuerpo, esVariable }) {
 /**
  * Tabla de producciones de una gramática del motor ({inicial, variables, producciones}).
  * Si se pasa `anterior`, marca en ámbar lo nuevo y tacha lo eliminado respecto a ella.
+ *
+ * @param {object} props
+ * @param {object} props.gramatica         Gramática a mostrar (formato de motor/gramatica.py).
+ * @param {object|null} [props.anterior]   Gramática del paso previo, para comparar.
  */
 export default function Producciones({ gramatica, anterior = null }) {
   const prods = gramatica.producciones;
@@ -78,7 +87,12 @@ export default function Producciones({ gramatica, anterior = null }) {
   );
 }
 
-/** Un paso del motor ({titulo, detalle, gramatica}) con su tabla, comparado con el paso previo. */
+/**
+ * Un paso del motor ({titulo, detalle, gramatica}) con su tabla, comparado con el paso previo.
+ * @param {object} props
+ * @param {object} props.paso       Paso a mostrar ({titulo, detalle, gramatica}).
+ * @param {object|null} props.anterior  Gramática del paso previo, para comparar.
+ */
 export function PasoGramatica({ paso, anterior }) {
   return (
     <div className="paso-gramatica">

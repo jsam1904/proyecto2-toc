@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
  * No sabe qué es un paso: `render(paso, indice)` decide cómo se muestra.
  *
  * Teclado (con el foco en el control): ← → mueven un paso, espacio reproduce.
+ *
+ * @param {object} props
+ * @param {Array} props.pasos          Lista de pasos a recorrer.
+ * @param {Function} props.render      (paso, indice) => JSX del paso actual.
+ * @param {number} [props.velocidadMs] Milisegundos entre pasos al reproducir.
  */
 export default function Pasos({ pasos, render, velocidadMs = 900 }) {
   const [i, setI] = useState(0);
