@@ -74,6 +74,10 @@ const PESTANAS = [
   },
 ];
 
+/**
+ * Página completa: formulario de gramática/oración, pestañas y veredicto.
+ * @param {object} props  Sin props; el estado vive aquí (gramática, oración, resultado).
+ */
 export default function App() {
   const [gramatica, setGramatica] = useState(EJEMPLOS.expresiones.gramatica);
   const [oracion, setOracion] = useState(EJEMPLOS.expresiones.oracion);
@@ -152,7 +156,12 @@ export default function App() {
               autoComplete="off"
             />
           </label>
-          <button type="button" className="primario" onClick={() => ejecutar()} disabled={cargando}>
+          <button
+            type="button"
+            className="primario"
+            onClick={() => ejecutar()}
+            disabled={cargando || !gramatica.trim()}
+          >
             {cargando ? "Calculando…" : "Ejecutar"}
           </button>
           <select
@@ -170,6 +179,13 @@ export default function App() {
           </select>
         </div>
         {error && <p className="error">{error}</p>}
+        {datos?.advertencias?.length > 0 && (
+          <ul className="advertencias">
+            {datos.advertencias.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        )}
 
         {datos && (
           <div className="veredicto-barra">
