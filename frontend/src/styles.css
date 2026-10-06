@@ -610,3 +610,100 @@ details.json pre {
   color: var(--tinta);
   padding: 0.4rem 0.5rem;
 }
+
+/* ===================== CYK y parse tree (Angel) ===================== */
+
+.veredicto-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  border: 1.5px solid var(--tinta);
+  border-radius: var(--radio);
+  background: var(--papel-alto);
+}
+.veredicto.grande {
+  font-size: 1.5rem;
+  padding: 0 0.6em;
+}
+.tiempo {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+}
+.aviso {
+  color: #8a5300;
+  background: #fff4e0;
+  border-left: 3px solid var(--ambar);
+  padding: 0.35rem 0.6rem;
+}
+
+/* Pirámide CYK: fila = largo de la subcadena, columna = inicio */
+.cyk-piramide {
+  display: grid;
+  gap: 4px;
+  overflow-x: auto;
+}
+.cyk-fila {
+  display: grid;
+  gap: 4px;
+}
+.cyk-largo {
+  font-family: var(--mano);
+  color: var(--tinta-suave);
+  align-self: center;
+  text-align: right;
+  padding-right: 0.3rem;
+}
+.cyk-celda {
+  min-height: 2.2rem;
+  border: 1.5px solid var(--tinta);
+  border-radius: var(--radio);
+  background: var(--papel-alto);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.15rem;
+  word-break: break-word;
+}
+.cyk-celda.cyk-vacia {
+  color: var(--tinta-suave);
+}
+.cyk-celda.celda-activa {
+  background: var(--ambar-fondo);
+  border-color: var(--ambar);
+  border-width: 2px;
+}
+.cyk-celda.cyk-fuente {
+  background: var(--azul-fondo);
+  border-color: var(--azul);
+}
+.cyk-celda.cyk-raiz {
+  box-shadow: inset 0 0 0 2px var(--verde);
+}
+.cyk-token {
+  font-family: var(--mano);
+  font-size: 1.05rem;
+  text-align: center;
+}
+.particiones {
+  padding-left: 1.1rem;
+  margin: 0.3rem 0;
+}
+.particiones li.sin-reglas {
+  color: var(--tinta-suave);
+}
+
+/* Parse tree */
+.selector {
+  display: flex;
+  gap: 0.5rem;
+}
+.selector button.activo {
+  background: var(--ambar-fondo);
+  border-color: var(--ambar);
+}
