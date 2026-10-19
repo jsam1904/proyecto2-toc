@@ -9,6 +9,10 @@ cuando es aceptada.
 > **Estado:** pipeline completo: lectura, simplificación, CNF, CYK (con tiempo) y parse
 > tree, en CLI, API y frontend.
 
+## Video
+
+https://youtu.be/HTbk0C0aEfM
+
 ## Estructura
 
 ```
